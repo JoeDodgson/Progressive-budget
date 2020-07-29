@@ -1,3 +1,78 @@
+// Declare variables
+let db;
+
+// Create a new db request for a requests database
+const request = window.indexedDB.open("requests", 1);
+
+// Specify an object store for pending API requests
+request.onupgradeneeded = event => {
+  db = event.target.result;
+  // Create object store called 'pending' and set autoIncrement to true
+  const objStore = db.createObjectStore("pending", { autoIncrement: true });
+  objStore.createIndex("name", "name");
+};
+
+// On success, store the result in the db variable
+request.onsuccess = ({ target }) => {
+  db = target.result;
+};
+
+request.onerror = event => {
+    console.log(`Error - db.js - request: ${event.target.errorCode}`);
+};
+
+const saveRecord = record => {
+  // Create a transaction on the 'pending' db with readwrite access
+  const transaction = db.transaction(["pending"], "readwrite");
+
+  // Access the 'pending' object store
+  const store = transaction.objectStore("pending");
+
+  // Add the record to your store with add method
+  store.add(record);
+}
+
+const fulfilRequests = () => {
+  // Open a transaction on the 'pending' db
+  const transaction = db.transaction(["pending"], "readwrite");
+
+  // Access the 'pending' object store
+  const store = transaction.objectStore("pending");
+  const index = store.index("name");
+
+  // Get all records from store and set to a variable
+  const getAll = index.getAll();
+
+  getAll.onsuccess = () => {
+    if (getAll.result.length > 0) {
+      fetch("/api/transaction/bulk", {
+        method: "POST",
+        body: JSON.stringify(getAll.result),
+        headers: {
+          Accept: "application/json, text/plain, */*",
+          "Content-Type": "application/json",
+        },
+      })
+      .then((response) => response.json())
+      .then(() => {
+        // If successful, open a transaction on the pending db
+        const transaction = db.transaction(["pending"], "readwrite");
+
+        // Access the pending object store
+        const store = transaction.objectStore("pending");
+
+        // Clear all items in the store
+        store.clear();
+      });
+    }
+  };
+}
+
+// Event listener to check if the application comes online
+// If application comes online, fulfil the pending API requests
+window.addEventListener("online", fulfilRequests);
+
+
 // Define variables
 let transactions = [];
 let myChart;
@@ -15,82 +90,82 @@ fetch("/api/transaction")
     populateAll();
   });
   
-  // Calculates the total budget remaining and sets the text content of the #total element to that value
-  const populateTotal = () => {
-    // Reduces all transactions down to a single remaining budget. Start with zero and add every transaction value
-    let total = transactions.reduce((total, t) => {
-      return total + parseInt(t.value);
-    }, 0);
+// Calculates the total budget remaining and sets the text content of the #total element to that value
+const populateTotal = () => {
+  // Reduces all transactions down to a single remaining budget. Start with zero and add every transaction value
+  let total = transactions.reduce((total, t) => {
+    return total + parseInt(t.value);
+  }, 0);
+  
+  // Set the text content of the #total element to the remaining budget
+  let totalEl = document.querySelector("#total");
+  totalEl.textContent = total;
+}
+  
+// Populate the transaction table with all transactions
+const populateTable = () => {
+  // Store the table body element as a variable and set its innerHTML to an empty string
+  let tbody = document.querySelector("#tbody");
+  tbody.innerHTML = "";
+  
+  // Create and populate a table row for each transaction
+  transactions.forEach(transaction => {
+    let tr = document.createElement("tr");
+    tr.innerHTML = `
+    <td>${transaction.name}</td>
+    <td>${transaction.value}</td>
+    `;
     
-    // Set the text content of the #total element to the remaining budget
-    let totalEl = document.querySelector("#total");
-    totalEl.textContent = total;
+    // Append the new table row to the table body
+    tbody.appendChild(tr);
+  });
+}
+  
+// Populates the chart which displays all the transaction
+const populateChart = () => {
+  // Initialise the sum variable
+  let sum = 0;
+  
+  // Reverse the transactions array and store as a new variable
+  let reversed = transactions.slice().reverse();
+  
+  // Create date labels for the chart x-axis
+  let labels = reversed.map(t => {
+    let date = new Date(t.date);
+    return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+  });
+  
+  // Create an array of the budget remaining after each transaction - to be used as chart data
+  let data = reversed.map(t => {
+    sum += parseInt(t.value);
+    return sum;
+  });
+  
+  // Remove the old chart (if it exists)
+  if (myChart) {
+    myChart.destroy();
   }
   
-  // Populate the transaction table with all transactions
-  const populateTable = () => {
-    // Store the table body element as a variable and set its innerHTML to an empty string
-    let tbody = document.querySelector("#tbody");
-    tbody.innerHTML = "";
-    
-    // Create and populate a table row for each transaction
-    transactions.forEach(transaction => {
-      let tr = document.createElement("tr");
-      tr.innerHTML = `
-      <td>${transaction.name}</td>
-      <td>${transaction.value}</td>
-      `;
-      
-      // Append the new table row to the table body
-      tbody.appendChild(tr);
-    });
-  }
+  // Select the chart element from the DOM
+  let ctx = document.getElementById("myChart").getContext("2d");
   
-  // Populates the chart which displays all the transaction
-  const populateChart = () => {
-    // Initialise the sum variable
-    let sum = 0;
-    
-    // Reverse the transactions array and store as a new variable
-    let reversed = transactions.slice().reverse();
-    
-    // Create date labels for the chart x-axis
-    let labels = reversed.map(t => {
-      let date = new Date(t.date);
-      return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
-    });
-    
-    // Create an array of the budget remaining after each transaction - to be used as chart data
-    let data = reversed.map(t => {
-      sum += parseInt(t.value);
-      return sum;
-    });
-    
-    // Remove the old chart (if it exists)
-    if (myChart) {
-      myChart.destroy();
+  // Create a new chart
+  myChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: "Total Over Time",
+        fill: true,
+        backgroundColor: "#6666ff",
+        data
+      }]
     }
-    
-    // Select the chart element from the DOM
-    let ctx = document.getElementById("myChart").getContext("2d");
-    
-    // Create a new chart
-    myChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          label: "Total Over Time",
-          fill: true,
-          backgroundColor: "#6666ff",
-          data
-        }]
-      }
-    });
-  }
+  });
+}
   
   // Processes a transaction sent by clicking the add / subtract funds button
-  const sendTransaction = isAdding => {
+const sendTransaction = isAdding => {
     // Store DOM elements as variables
     let nameEl = document.querySelector("#t-name");
     let amountEl = document.querySelector("#t-amount");
@@ -157,7 +232,7 @@ fetch("/api/transaction")
     }
     // If the app is offline, store the post request in the indexedDB
     else {
-      
+      saveRecord(transaction);
     }
 }
 
@@ -167,14 +242,6 @@ const populateAll = () => {
   populateTable();
   populateChart();
 }
-
-// Event listener to check if the application comes online
-window.addEventListener("online", () => {
-  // Check the IDB for any unfulfilled requests
-
-  // Carry out any unfulfilled requests one by one
-
-});
 
 // When the user clicks the 'add funds' button, call the sendTransaction function, passing in isAdding = true
 document.querySelector("#add-btn").onclick = () => {
