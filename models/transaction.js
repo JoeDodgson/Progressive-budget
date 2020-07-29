@@ -1,7 +1,10 @@
+// Require in node modules
 const mongoose = require("mongoose");
 
+// Store mongoose schema class as separate variable
 const Schema = mongoose.Schema;
 
+// Define a new mongoose schema
 const transactionSchema = new Schema(
   {
     name: {
@@ -20,6 +23,6 @@ const transactionSchema = new Schema(
   }
 );
 
+// Create the mongoose model using the schema and export it
 const Transaction = mongoose.model("Transaction", transactionSchema);
-
 module.exports = Transaction;
