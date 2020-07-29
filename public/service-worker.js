@@ -59,7 +59,7 @@ self.addEventListener("fetch", evt => {
             // Network request failed, try to get it from the cache.
             return cache.match(evt.request);
           });
-      }).catch(err => console.log(err))
+      }).catch(err => console.log(`Error: service-worker.js - self.addEventListener("fetch"): ${err}`))
     );
 
     return;
@@ -70,7 +70,7 @@ self.addEventListener("fetch", evt => {
     // If the request matches the cache, serve static assets ("offline-first" approach)
     caches.match(evt.request).then(response => {
       return response || fetch(evt.request);
-    })
+    }).catch(err => console.log(`Error: service-worker.js - self.addEventListener("fetch"): ${err}`))
   );
 });
 
