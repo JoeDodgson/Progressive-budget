@@ -74,3 +74,11 @@ self.addEventListener("fetch", evt => {
   );
 });
 
+// If any get requests are made, check the cache first, but if it is not in the cache, proceed with the fetch
+self.addEventListener("fetch", event => {
+  event.respondWith(
+    caches.match(event.request).then(function(response) {
+      return response || fetch(event.request);
+    })
+  );
+});
