@@ -123,36 +123,42 @@ fetch("/api/transaction")
     // Populate the front end
     populateAll();
     
-    // Send a post request to the server
-    fetch("/api/transaction", {
-      method: "POST",
-      body: JSON.stringify(transaction),
-      headers: {
-        Accept: "application/json, text/plain, */*",
-        "Content-Type": "application/json"
-      }
-    })
-    .then(response => {    
-      return response.json();
-    })
-  .then(data => {
-    if (data.errors) {
-      errorEl.textContent = "Missing Information";
+    // Check if the application is online
+    if (navigator.onLine) {
+      // If the application is online, send a post request to the server
+      fetch("/api/transaction", {
+        method: "POST",
+        body: JSON.stringify(transaction),
+        headers: {
+          Accept: "application/json, text/plain, */*",
+          "Content-Type": "application/json"
+        }
+      })
+      .then(response => {    
+        return response.json();
+      })
+      .then(data => {
+        if (data.errors) {
+          errorEl.textContent = "Missing Information";
+        }
+        else {
+          // Clear the form (name and amounts entered by the user) in the front end
+          nameEl.value = "";
+          amountEl.value = "";
+        }
+      })
+      .catch(err => {
+        console.log(`index.js - sendTransaction() - fetch("/api/transaction") - Error: ${err}`);
+        
+        // Clear the form (name and amounts entered by the user) in the front end
+        nameEl.value = "";
+        amountEl.value = "";
+      });
     }
+    // If the app is offline, store the post request in the indexedDB
     else {
-      // Clear the form (name and amounts entered by the user) in the front end
-      nameEl.value = "";
-      amountEl.value = "";
+      
     }
-  })
-  .catch(err => {
-    // fetch failed, so save in indexed db
-    saveRecord(transaction);
-    
-    // Clear the form (name and amounts entered by the user) in the front end
-    nameEl.value = "";
-    amountEl.value = "";
-  });
 }
 
 // Call all 'populate' functions to update the front end displaying all transactions
@@ -161,6 +167,14 @@ const populateAll = () => {
   populateTable();
   populateChart();
 }
+
+// Event listener to check if the application comes online
+window.addEventListener("online", () => {
+  // Check the IDB for any unfulfilled requests
+
+  // Carry out any unfulfilled requests one by one
+
+});
 
 // When the user clicks the 'add funds' button, call the sendTransaction function, passing in isAdding = true
 document.querySelector("#add-btn").onclick = () => {
