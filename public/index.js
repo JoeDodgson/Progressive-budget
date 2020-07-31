@@ -1,5 +1,6 @@
 // Declare variables
 let db;
+let allTransactions;
 
 // Create a new db request for a budget database
 const request = window.indexedDB.open("budget", 1);
@@ -41,13 +42,16 @@ const fulfilRequests = () => {
   const index = store.index("name");
 
   // Get all records from store and set to a variable
-  const getAll = index.getAll();
+  allTransactions = index.getAll();
+  
+  allTransactions.onsuccess = () => {
+    if (allTransactions.result.length > 0) {
+      // Filter the results for only those which are pending
+      const pendingTransactions = allTransactions.result.filter(result => result.pending);
 
-  getAll.onsuccess = () => {
-    if (getAll.result.length > 0) {
       fetch("/api/transaction/bulk", {
         method: "POST",
-        body: JSON.stringify(getAll.result),
+        body: JSON.stringify(pendingTransactions),
         headers: {
           Accept: "application/json, text/plain, */*",
           "Content-Type": "application/json",
@@ -61,8 +65,14 @@ const fulfilRequests = () => {
         // Access the transactions object store
         const store = transaction.objectStore("transactions");
 
-        // Clear all items in the store
+        // Clear all records from the object store
         store.clear();
+
+        // For all transactions, set the pending property to false, then add to the database
+        allTransactions.result.forEach(item => {
+          item.pending = false;
+          store.add(item);
+        })
       });
     }
   };
@@ -85,6 +95,20 @@ fetch("/api/transaction")
   .then(data => {
     // Save the data returned by the get request
     transactions = data;
+
+    // Open a transaction on the transactions object store
+    const transaction = db.transaction(["transactions"], "readwrite");
+
+    // Access the transactions object store
+    const store = transaction.objectStore("transactions");
+
+    // Clear all records from the object store
+    store.clear();
+
+    // Store all transactions in the IDB
+    transactions.forEach(item => {
+      store.add(item);
+    })
 
     // Populate the front end
     populateAll();
@@ -184,7 +208,8 @@ const sendTransaction = isAdding => {
     let transaction = {
       name: nameEl.value,
       value: amountEl.value,
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
+      pending: false
     };
 
     // If subtracting funds, convert amount to negative number
@@ -230,10 +255,14 @@ const sendTransaction = isAdding => {
         amountEl.value = "";
       });
     }
-    // If the app is offline, store the post request in the indexedDB
+
+    // If the app is offline, set the transaction's pending property to true
     else {
-      saveRecord(transaction);
+      transaction.pending = true;
     }
+
+    // Store the post request in the indexedDB
+    saveRecord(transaction);
 }
 
 // Call all 'populate' functions to update the front end displaying all transactions
