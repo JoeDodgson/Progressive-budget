@@ -19,6 +19,10 @@ const transactionSchema = new Schema(
     date: {
       type: Date,
       default: Date.now
+    },
+    pending: {
+      type: Boolean,
+      default: false
     }
   }
 );
