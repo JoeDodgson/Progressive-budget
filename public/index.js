@@ -1,14 +1,14 @@
 // Declare variables
 let db;
 
-// Create a new db request for a requests database
-const request = window.indexedDB.open("requests", 1);
+// Create a new db request for a budget database
+const request = window.indexedDB.open("budget", 1);
 
-// Specify an object store for pending API requests
+// Specify an object store for transactions
 request.onupgradeneeded = event => {
   db = event.target.result;
-  // Create object store called 'pending' and set autoIncrement to true
-  const objStore = db.createObjectStore("pending", { autoIncrement: true });
+  // Create object store called 'transactions' and set autoIncrement to true
+  const objStore = db.createObjectStore("transactions", { autoIncrement: true });
   objStore.createIndex("name", "name");
 };
 
@@ -18,26 +18,26 @@ request.onsuccess = ({ target }) => {
 };
 
 request.onerror = event => {
-    console.log(`Error - db.js - request: ${event.target.errorCode}`);
+  console.log(`Error - db.js - request: ${event.target.errorCode}`);
 };
 
 const saveRecord = record => {
-  // Create a transaction on the 'pending' db with readwrite access
-  const transaction = db.transaction(["pending"], "readwrite");
+  // Create a transaction on the 'transactions' db with readwrite access
+  const transaction = db.transaction(["transactions"], "readwrite");
 
-  // Access the 'pending' object store
-  const store = transaction.objectStore("pending");
+  // Access the 'transactions' object store
+  const store = transaction.objectStore("transactions");
 
   // Add the record to your store with add method
   store.add(record);
 }
 
 const fulfilRequests = () => {
-  // Open a transaction on the 'pending' db
-  const transaction = db.transaction(["pending"], "readwrite");
+  // Open a transaction on the 'transactions' db
+  const transaction = db.transaction(["transactions"], "readwrite");
 
-  // Access the 'pending' object store
-  const store = transaction.objectStore("pending");
+  // Access the 'transactions' object store
+  const store = transaction.objectStore("transactions");
   const index = store.index("name");
 
   // Get all records from store and set to a variable
@@ -55,11 +55,11 @@ const fulfilRequests = () => {
       })
       .then((response) => response.json())
       .then(() => {
-        // If successful, open a transaction on the pending db
-        const transaction = db.transaction(["pending"], "readwrite");
+        // If successful, open a transaction on the transactions object store
+        const transaction = db.transaction(["transactions"], "readwrite");
 
-        // Access the pending object store
-        const store = transaction.objectStore("pending");
+        // Access the transactions object store
+        const store = transaction.objectStore("transactions");
 
         // Clear all items in the store
         store.clear();
