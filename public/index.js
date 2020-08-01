@@ -1,6 +1,5 @@
 // Declare variables
 let db;
-let allTransactions;
 let transactions = [];
 let myChart;
 
@@ -80,8 +79,26 @@ fetch("/api/transaction")
     // Save the data returned by the get request
     transactions = data;
 
-    // Populate the front end
-    populateAll();
+    // Open a transaction on the 'transactions' db
+    const transaction = db.transaction(["transactions"], "readwrite");
+    
+    // Access the 'transactions' object store
+    const store = transaction.objectStore("transactions");
+    const index = store.index("name");
+    
+    // Get all records from store
+    const pendingTransactions = index.getAll()
+
+    pendingTransactions.onsuccess = () => {
+      if (pendingTransactions.result.length > 0) {
+        pendingTransactions.result.forEach(transaction => {
+          // Add any pending transactions to the variable
+          transactions.unshift(transaction);
+        })
+      }
+      // Populate the front end
+      populateAll();
+    }
   });
 
 // Calculates the total budget remaining and sets the text content of the #total element to that value
@@ -192,9 +209,8 @@ const sendTransaction = isAdding => {
   // Populate the front end
   populateAll();
   
-  // Check if the application is online
+  // If the application is online, send a post request to the server
   if (navigator.onLine) {
-    // If the application is online, send a post request to the server
     fetch("/api/transaction", {
       method: "POST",
       body: JSON.stringify(transaction),
