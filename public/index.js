@@ -41,7 +41,7 @@ const fulfilRequests = () => {
   const store = transaction.objectStore("transactions");
   const index = store.index("name");
 
-  // Get all records from store and set to a variable
+  // Get all records from store
   allTransactions = index.getAll();
   
   allTransactions.onsuccess = () => {
@@ -65,14 +65,19 @@ const fulfilRequests = () => {
         // Access the transactions object store
         const store = transaction.objectStore("transactions");
 
-        // Clear all records from the object store
-        store.clear();
-
-        // For all transactions, set the pending property to false, then add to the database
-        allTransactions.result.forEach(item => {
-          item.pending = false;
-          store.add(item);
-        })
+        // Iterate over the IDB and change all pending properties to false
+        const getCursorRequest = store.openCursor();
+        getCursorRequest.onsuccess = e => {
+          const cursor = e.target.result;
+          if (cursor) {
+            if (cursor.value.pending) {
+              const updateData = cursor.value;
+              updateData.pending = false;
+              cursor.update(updateData);
+            }
+            cursor.continue();
+          }
+        }
       });
     }
   };
