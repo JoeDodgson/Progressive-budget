@@ -190,79 +190,73 @@ const populateChart = () => {
   
   // Processes a transaction sent by clicking the add / subtract funds button
 const sendTransaction = isAdding => {
-    // Store DOM elements as variables
-    let nameEl = document.querySelector("#t-name");
-    let amountEl = document.querySelector("#t-amount");
-    let errorEl = document.querySelector(".form .error");
-    
-    // If the user has not entered a name or amount, display error message
-    if (nameEl.value === "" || amountEl.value === "") {
-      errorEl.textContent = "Missing Information";
-      return;
-    }
-    else {
-      errorEl.textContent = "";
-    }
-    
-    // Create a transaction record using the name and amount entered by the user, along with current date
-    let transaction = {
-      name: nameEl.value,
-      value: amountEl.value,
-      date: new Date().toISOString(),
-      pending: false
-    };
+  // Store DOM elements as variables
+  let nameEl = document.querySelector("#t-name");
+  let amountEl = document.querySelector("#t-amount");
+  let errorEl = document.querySelector(".form .error");
+  
+  // If the user has not entered a name or amount, display error message
+  if (nameEl.value === "" || amountEl.value === "") {
+    errorEl.textContent = "Missing Information";
+    return;
+  }
+  else {
+    errorEl.textContent = "";
+  }
+  
+  // Create a transaction record using the name and amount entered by the user, along with current date
+  let transaction = {
+    name: nameEl.value,
+    value: amountEl.value,
+    date: new Date().toISOString(),
+    pending: false
+  };
 
-    // If subtracting funds, convert amount to negative number
-    if (!isAdding) {
-      transaction.value *= -1;
-    }
-    
-    // Add to the beginning of the transactions array
-    transactions.unshift(transaction);
-    
-    // Populate the front end
-    populateAll();
-    
-    // Check if the application is online
-    if (navigator.onLine) {
-      // If the application is online, send a post request to the server
-      fetch("/api/transaction", {
-        method: "POST",
-        body: JSON.stringify(transaction),
-        headers: {
-          Accept: "application/json, text/plain, */*",
-          "Content-Type": "application/json"
-        }
-      })
-      .then(response => {    
-        return response.json();
-      })
-      .then(data => {
-        if (data.errors) {
-          errorEl.textContent = "Missing Information";
-        }
-        else {
-          // Clear the form (name and amounts entered by the user) in the front end
-          nameEl.value = "";
-          amountEl.value = "";
-        }
-      })
-      .catch(err => {
-        console.log(`index.js - sendTransaction() - fetch("/api/transaction") - Error: ${err}`);
-        
-        // Clear the form (name and amounts entered by the user) in the front end
-        nameEl.value = "";
-        amountEl.value = "";
-      });
-    }
+  // If subtracting funds, convert amount to negative number
+  if (!isAdding) {
+    transaction.value *= -1;
+  }
+  
+  // Add to the beginning of the transactions array
+  transactions.unshift(transaction);
+  
+  // Populate the front end
+  populateAll();
+  
+  // Check if the application is online
+  if (navigator.onLine) {
+    // If the application is online, send a post request to the server
+    fetch("/api/transaction", {
+      method: "POST",
+      body: JSON.stringify(transaction),
+      headers: {
+        Accept: "application/json, text/plain, */*",
+        "Content-Type": "application/json"
+      }
+    })
+    .then(response => {    
+      return response.json();
+    })
+    .then(data => {
+      if (data.errors) {
+        errorEl.textContent = "Missing Information";
+      }
+    })
+    .catch(err => {
+      console.log(`index.js - sendTransaction() - fetch("/api/transaction") - Error: ${err}`);
+    });
+  }
+  // If the app is offline, set the transaction's pending property to true
+  else {
+    transaction.pending = true;
+  }
 
-    // If the app is offline, set the transaction's pending property to true
-    else {
-      transaction.pending = true;
-    }
-
-    // Store the post request in the indexedDB
-    saveRecord(transaction);
+  // Store the post request in the indexedDB
+  saveRecord(transaction);
+  
+  // Clear the form (name and amounts entered by the user) in the front end
+  nameEl.value = "";
+  amountEl.value = "";
 }
 
 // Call all 'populate' functions to update the front end displaying all transactions
