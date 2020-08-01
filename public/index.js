@@ -1,9 +1,11 @@
 // Declare variables
 let db;
 let allTransactions;
+let transactions = [];
+let myChart;
 
-// Create a new db request for a budget database
-const request = window.indexedDB.open("budget", 1);
+// Create a new db request for a pending database
+const request = window.indexedDB.open("pending", 1);
 
 // Specify an object store for transactions
 request.onupgradeneeded = event => {
@@ -42,13 +44,10 @@ const fulfilRequests = () => {
   const index = store.index("name");
 
   // Get all records from store
-  allTransactions = index.getAll();
+  const pendingTransactions = index.getAll();
   
-  allTransactions.onsuccess = () => {
-    if (allTransactions.result.length > 0) {
-      // Filter the results for only those which are pending
-      const pendingTransactions = allTransactions.result.filter(result => result.pending);
-
+  pendingTransactions.onsuccess = () => {
+    if (pendingTransactions.result.length > 0) {
       fetch("/api/transaction/bulk", {
         method: "POST",
         body: JSON.stringify(pendingTransactions),
@@ -65,74 +64,25 @@ const fulfilRequests = () => {
         // Access the transactions object store
         const store = transaction.objectStore("transactions");
 
-        // Iterate over the IDB and change all pending properties to false
-        const getCursorRequest = store.openCursor();
-        getCursorRequest.onsuccess = e => {
-          const cursor = e.target.result;
-          if (cursor) {
-            if (cursor.value.pending) {
-              const updateData = cursor.value;
-              updateData.pending = false;
-              cursor.update(updateData);
-            }
-            cursor.continue();
-          }
-        }
+        // Clear all records from the object store
+        store.clear();
       });
     }
   };
 }
 
-// Event listener to check if the application comes online
-// If application comes online, fulfil the pending API requests
-window.addEventListener("online", fulfilRequests);
+// Submit a get request for all transactions
+fetch("/api/transaction")
+  .then(response => {
+    return response.json();
+  })
+  .then(data => {
+    // Save the data returned by the get request
+    transactions = data;
 
-
-// Define variables
-let transactions = [];
-let myChart;
-
-// When the document loads, if online, perform a get request to populate transactions variable
-if (navigator.onLine) {
-  // Submit a get request for all transactions
-  fetch("/api/transaction")
-    .then(response => {
-      return response.json();
-    })
-    .then(data => {
-      // Save the data returned by the get request
-      transactions = data;
-
-      // Open a transaction on the transactions object store
-      const transaction = db.transaction(["transactions"], "readwrite");
-
-      // Access the transactions object store
-      const store = transaction.objectStore("transactions");
-
-      // Clear all records from the object store
-      store.clear();
-
-      // Store all transactions in the IDB
-      transactions.forEach(item => {
-        store.add(item);
-      })
-
-      // Populate the front end
-      populateAll();
-    });
-}
-// If offline, populate transactions variable using data from IDB
-else {
-  // Open a transaction on the 'transactions' db
-  const transaction = db.transaction(["transactions"], "readwrite");
-
-  // Access the 'transactions' object store
-  const store = transaction.objectStore("transactions");
-  const index = store.index("name");
-
-  // Get all records from store
-  transactions = index.getAll();
-}
+    // Populate the front end
+    populateAll();
+  });
 
 // Calculates the total budget remaining and sets the text content of the #total element to that value
 const populateTotal = () => {
@@ -228,8 +178,7 @@ const sendTransaction = isAdding => {
   let transaction = {
     name: nameEl.value,
     value: amountEl.value,
-    date: new Date().toISOString(),
-    pending: false
+    date: new Date().toISOString()
   };
 
   // If subtracting funds, convert amount to negative number
@@ -266,13 +215,10 @@ const sendTransaction = isAdding => {
       console.log(`index.js - sendTransaction() - fetch("/api/transaction") - Error: ${err}`);
     });
   }
-  // If the app is offline, set the transaction's pending property to true
+  // If the app is offline, store the post request in the 'pending' indexedDB
   else {
-    transaction.pending = true;
+    saveRecord(transaction);
   }
-
-  // Store the post request in the indexedDB
-  saveRecord(transaction);
   
   // Clear the form (name and amounts entered by the user) in the front end
   nameEl.value = "";
@@ -285,6 +231,9 @@ const populateAll = () => {
   populateTable();
   populateChart();
 }
+
+// If application comes online, fulfil the pending API requests
+window.addEventListener("online", fulfilRequests);
 
 // When the user clicks the 'add funds' button, call the sendTransaction function, passing in isAdding = true
 document.querySelector("#add-btn").onclick = () => {
