@@ -92,33 +92,48 @@ window.addEventListener("online", fulfilRequests);
 let transactions = [];
 let myChart;
 
-// Submit a get request for all transactions
-fetch("/api/transaction")
-  .then(response => {
-    return response.json();
-  })
-  .then(data => {
-    // Save the data returned by the get request
-    transactions = data;
-
-    // Open a transaction on the transactions object store
-    const transaction = db.transaction(["transactions"], "readwrite");
-
-    // Access the transactions object store
-    const store = transaction.objectStore("transactions");
-
-    // Clear all records from the object store
-    store.clear();
-
-    // Store all transactions in the IDB
-    transactions.forEach(item => {
-      store.add(item);
+// When the document loads, if online, perform a get request to populate transactions variable
+if (navigator.onLine) {
+  // Submit a get request for all transactions
+  fetch("/api/transaction")
+    .then(response => {
+      return response.json();
     })
+    .then(data => {
+      // Save the data returned by the get request
+      transactions = data;
 
-    // Populate the front end
-    populateAll();
-  });
-  
+      // Open a transaction on the transactions object store
+      const transaction = db.transaction(["transactions"], "readwrite");
+
+      // Access the transactions object store
+      const store = transaction.objectStore("transactions");
+
+      // Clear all records from the object store
+      store.clear();
+
+      // Store all transactions in the IDB
+      transactions.forEach(item => {
+        store.add(item);
+      })
+
+      // Populate the front end
+      populateAll();
+    });
+}
+// If offline, populate transactions variable using data from IDB
+else {
+  // Open a transaction on the 'transactions' db
+  const transaction = db.transaction(["transactions"], "readwrite");
+
+  // Access the 'transactions' object store
+  const store = transaction.objectStore("transactions");
+  const index = store.index("name");
+
+  // Get all records from store
+  transactions = index.getAll();
+}
+
 // Calculates the total budget remaining and sets the text content of the #total element to that value
 const populateTotal = () => {
   // Reduces all transactions down to a single remaining budget. Start with zero and add every transaction value
